@@ -1,105 +1,94 @@
-from typing import List
+"""Fretboard representation."""
+from typing import Type
 
-from constants import (
-    CHROMATIC,
-    BOLDRED,
-    BOLDBLUE,
-    BOLDYELLOW,
-    RESET,
-)
-from intervals import INTERVAL_SHORTNAMES
+from constants import CHROMATIC, INTERVAL_SHORTNAMES, Color, rearrange_chromatic_by_root
+from mode import Mode
+from scale import Scale
 from util import cumulative_sum
 
+FRET_TPL = "|--{}--"
 
-class FretBoard:
+
+class FretBoardPrint:
+    """Fretboard representation for notes and intervals."""
+
+    # TODO: use types instead of string matching while highlighting.
+
+    TUNING = [0, 5, -5, 5, 5, 5, 4, 5]
     SIX_STRING = ["E", "A", "D", "G", "B", "E"]
     EIGHT_STRING = ["F#", "B", *SIX_STRING]
-
-    fret_tpl = "|--{}--"
-
-    @staticmethod
-    def print():
-        for string_idx, string in enumerate(reversed(FretBoard.EIGHT_STRING)):
-            start_note_idx = CHROMATIC.index(string)
-            rearranged_chromatic = (
-                CHROMATIC[start_note_idx:] + CHROMATIC[:start_note_idx]
-            )
-            rearranged_chromatic = [f" {q:^2}" for q in rearranged_chromatic]
-            two_octaves = rearranged_chromatic + rearranged_chromatic
-            print(
-                f"{string_idx} "
-                + "".join([FretBoard.fret_tpl.format(n) for n in two_octaves])
-                + "|"
-            )
-        print(
-            "\n- "
-            + "".join(
-                [
-                    FretBoard.fret_tpl.format(f"{q:^3}")
-                    for q in range(2 * len(rearranged_chromatic))
-                ]
-            )
-            + "|"
-        )
-
-
-class FretIntervals:
-
-    TUNING = [0, 5, 5, 5, 5, 5, 4, 5]
-    fret_tpl = "|--{}--"
-
-    finger_extent = 5
+    FINGER_EXTENT = 5
 
     @staticmethod
-    def pretty_fret() -> str:
+    def notes():
+        """Print fretboard with notes."""
+        print(FretBoardPrint._notes())
+
+    @staticmethod
+    def degrees():
+        """Print fretboard with degrees relative to tonic."""
+        print(FretBoardPrint._frets())
+
+    @staticmethod
+    def highlight_degrees(scale_type: Type[Scale], mode: Mode):
+        """Highlight degrees of a given scale and mode combination."""
+        scale_interval_names = scale_type().degrees(mode)
+        pretty_fret = FretBoardPrint._frets()
+        pretty_fret_colorized = pretty_fret
+        for short_name in scale_interval_names:
+            color = Color.BOLDBLUE if short_name == INTERVAL_SHORTNAMES[0] else Color.BOLDRED
+            pretty_fret_colorized = pretty_fret_colorized.replace(
+                short_name, f"{color}{short_name}{Color.RESET}"
+            )
+        print(pretty_fret_colorized)
+
+    @staticmethod
+    def highlight_notes(scale: Scale, mode: Mode):
+        """Highlight notes of a given scale and mode combination."""
+        scale_note_names = [note.name for note in scale.notes(mode)]
+        pretty_fret = FretBoardPrint._notes()
+        pretty_fret_colorized = pretty_fret
+        for name in scale_note_names:
+            color = Color.BOLDBLUE if name == scale_note_names[0] else Color.BOLDRED
+            pretty_fret_colorized = pretty_fret_colorized.replace(
+                f" {name} ", f" {color}{name}{Color.RESET} "
+            )
+        print(pretty_fret_colorized)
+
+    @staticmethod
+    def _notes():
         retval = ""
-        for string_interval in reversed(cumulative_sum(FretIntervals.TUNING)):
-            string_interval = string_interval % len(CHROMATIC)
-            rearranged = (
-                INTERVAL_SHORTNAMES[string_interval:]
-                + INTERVAL_SHORTNAMES[:string_interval]
-            )
-            extend_left_to_right = (
-                rearranged[-FretIntervals.finger_extent :]
-                + rearranged[: FretIntervals.finger_extent + 1]
-            )
-            row_str = (
-                "".join(
-                    [FretIntervals.fret_tpl.format(n) for n in extend_left_to_right]
-                )
-                + "|"
-            )
-            retval += f"{row_str}\n"
+        for idx, note_name in enumerate(reversed(FretBoardPrint.EIGHT_STRING)):
+            rearranged_chromatic = rearrange_chromatic_by_root(note_name)
+            two_octaves = 2 * [f" {q:^2}" for q in rearranged_chromatic]
+            retval += f"{idx} " + "".join([FRET_TPL.format(n) for n in two_octaves]) + "|\n"
+        retval += (
+            "\n- " + "".join([FRET_TPL.format(f"{q:^3}") for q in range(len(two_octaves))]) + "|"
+        )
         return retval
 
     @staticmethod
-    def pretty_fret_numbers() -> str:
-        return (
+    def _frets() -> str:
+        retval = ""
+        for string_interval in reversed(cumulative_sum(FretBoardPrint.TUNING)):
+            string_interval = string_interval % len(CHROMATIC)
+            rearranged = (
+                INTERVAL_SHORTNAMES[string_interval:] + INTERVAL_SHORTNAMES[:string_interval]
+            )
+            extend_left_to_right = (
+                rearranged[-FretBoardPrint.FINGER_EXTENT :]
+                + rearranged[: FretBoardPrint.FINGER_EXTENT + 1]
+            )
+            row_str = "".join([FRET_TPL.format(n) for n in extend_left_to_right]) + "|"
+            retval += f"{row_str}\n"
+        retval += (
             "".join(
                 [
-                    FretIntervals.fret_tpl.format(f"{q:^4}")
-                    for q in range(
-                        -FretIntervals.finger_extent, FretIntervals.finger_extent + 1
-                    )
+                    FRET_TPL.format(f"{q:^4}")
+                    for q in range(-FretBoardPrint.FINGER_EXTENT, FretBoardPrint.FINGER_EXTENT + 1)
                 ]
             )
             + "|"
             + "\n"
         )
-
-    @staticmethod
-    def print():
-        print(FretIntervals.pretty_fret())
-        print()
-        print(f"{BOLDYELLOW}{FretIntervals.pretty_fret_numbers()}{RESET}")
-
-    @staticmethod
-    def print_scale(scale_interval_names: List[str]):
-        pretty_fret = FretIntervals.pretty_fret()
-        pretty_fret_colorized = pretty_fret
-        for short_name in scale_interval_names:
-            color = BOLDBLUE if short_name == INTERVAL_SHORTNAMES[0] else BOLDRED
-            pretty_fret_colorized = pretty_fret_colorized.replace(
-                short_name, f"{color}{short_name}{RESET}"
-            )
-        print(pretty_fret_colorized)
+        return retval

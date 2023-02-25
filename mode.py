@@ -1,60 +1,52 @@
-import abc
+"""Modes of a scale."""
+from __future__ import annotations
+
+from enum import IntEnum
 from typing import List
 
-from intervals import get_short_name_by_degree
-from util import cumulative_sum
 
+class Mode(IntEnum):
+    """Modes of a scale."""
 
-H = 1
-W = 2
+    # pylint: disable=invalid-name
 
-
-class Mode(abc.ABC):
-    @abc.abstractproperty
-    def scale():
-        pass
+    Ionian = 2
+    Dorian = 3
+    Phrygian = 4
+    Lydian = 5
+    Mixolydian = 6
+    Aeolian = 0
+    Locrian = 1
 
     @staticmethod
-    def _cycle(interval_sequence: List[int], times: int):
-        return interval_sequence[times:] + interval_sequence[:times]
+    def all() -> List[str]:
+        """Get all mode names."""
+        return [k for k, v in Mode.__dict__.items() if isinstance(v, int)]
 
 
-class NaturalMode(Mode):
+def mode_shortnames() -> List[str]:
+    """Get mode shortnames.
 
-    MINOR_INTERVALS = [W, H, W, W, H, W, W]
-
-    def __init__(self, degree: int):
-        self._degree = degree
-
-    def scale(self):
-        sequence = Mode._cycle(NaturalMode.MINOR_INTERVALS, self._degree)
-        intervals = [0] + cumulative_sum(sequence)
-        interval_names = [get_short_name_by_degree(i) for i in intervals]
-        return interval_names
+    E.g.
+    Ionion -> ion
+    Dorian -> dor
+    ...
+    """
+    return [_format_shortname(m) for m in Mode.all()]
 
 
-AEOLIAN = NaturalMode(0)
-LOCRIAN = NaturalMode(1)
-IONIAN = NaturalMode(2)
-DORIAN = NaturalMode(3)
-PHRYGIAN = NaturalMode(4)
-LYDIAN = NaturalMode(5)
-MIXOLYDIAN = NaturalMode(6)
+def get_mode_by_shortname(short_name: str) -> Mode:
+    """Get a mode by shortname.
 
-SCALE_SHORTNAMES = {
-    "aeo": AEOLIAN,
-    "loc": LOCRIAN,
-    "ion": IONIAN,
-    "dor": DORIAN,
-    "phr": PHRYGIAN,
-    "lyd": LYDIAN,
-    "mxl": MIXOLYDIAN,
-}
+    Raises:
+        RuntimeError: If short_name does not correspond to a mode's shortname.
+    """
+    try:
+        name = next(filter(lambda m: _format_shortname(m) == short_name, Mode.all()))
+    except StopIteration:
+        raise RuntimeError(f"Invalid shortname: {short_name}")  # pylint: disable=raise-missing-from
+    return getattr(Mode, name)
 
 
-def get_avaliable_scales() -> None:
-    return " | ".join(SCALE_SHORTNAMES.keys())
-
-
-def get_scale_by_shortname(shortname: str) -> NaturalMode:
-    return SCALE_SHORTNAMES[shortname]
+def _format_shortname(long_name: str) -> str:
+    return long_name[:3].lower()
